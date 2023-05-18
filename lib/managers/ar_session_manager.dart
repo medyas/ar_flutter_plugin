@@ -51,10 +51,25 @@ class ARSessionManager {
   /// Places anchor in given 2D coordinates (starting from the top-left side of the screen)
   Future placeBasedOnScreenCoordinates(double x, double y) async {
     try {
-      return await _channel.invokeMethod<List<dynamic>>('placeBasedOnCoordinates', {
-        "x" : x,
-        "y" : y
+      return await _channel.invokeMethod<List<dynamic>>('placeBasedOnCoordinates', {"x": x, "y": y});
+    } catch (e) {
+      print('Error caught: ' + e.toString());
+      return null;
+    }
+  }
+
+  /// Places anchor in lat-lon-alt coordinates using GeoSpatial API
+  Future placeGeospatial(double lat, double lon, double alt, String name) async {
+    try {
+      var result = await _channel.invokeMethod('placeGeospatial', {
+        "lat": lat,
+        "lon": lon,
+        "alt": alt,
+        "name": name,
       });
+
+      var anchor = ARAnchor.fromJson(result);
+      return anchor;
     } catch (e) {
       print('Error caught: ' + e.toString());
       return null;
@@ -127,7 +142,8 @@ class ARSessionManager {
         case 'onPlaneOrPointTap':
           if (onPlaneOrPointTap != null) {
             final rawHitTestResults = call.arguments as List<dynamic>;
-            final serializedHitTestResults = rawHitTestResults.map((hitTestResult) => Map<String, dynamic>.from(hitTestResult)).toList();
+            final serializedHitTestResults =
+                rawHitTestResults.map((hitTestResult) => Map<String, dynamic>.from(hitTestResult)).toList();
             final hitTestResults = serializedHitTestResults.map((e) {
               return ARHitTestResult.fromJson(e);
             }).toList();
@@ -177,7 +193,8 @@ class ARSessionManager {
   /// Displays the [errorMessage] in a snackbar of the parent widget
   onError(String errorMessage) {
     ScaffoldMessenger.of(buildContext).showSnackBar(SnackBar(
-        content: Text(errorMessage), action: SnackBarAction(label: 'HIDE', onPressed: ScaffoldMessenger.of(buildContext).hideCurrentSnackBar)));
+        content: Text(errorMessage),
+        action: SnackBarAction(label: 'HIDE', onPressed: ScaffoldMessenger.of(buildContext).hideCurrentSnackBar)));
   }
 
   /// Dispose the AR view on the platforms to pause the scenes and disconnect the platform handlers.

@@ -4,6 +4,7 @@ import Foundation
 import ARKit
 import Combine
 import ARCoreCloudAnchors
+import ARCoreGeospatial
 
 class IosARView: NSObject, FlutterPlatformView, ARSCNViewDelegate, UIGestureRecognizerDelegate, ARSessionDelegate {
     let sceneView: ARSCNView
@@ -85,6 +86,26 @@ class IosARView: NSObject, FlutterPlatformView, ARSCNViewDelegate, UIGestureReco
                 let coordinates = CGPoint(x: CGFloat( arguments!["x"] as! Float), y: CGFloat( arguments!["y"] as! Float));
                 let htResult = parseTouchLocation(touchLocation: coordinates, returnHitResult: true);
                 result(htResult);
+                break;
+            case "placeGeospatial":
+            do {
+                var coordinates = CLLocationCoordinate2D();
+                coordinates.latitude = arguments!["lat"] as! Double;
+                coordinates.longitude = arguments!["lon"] as! Double;
+                var anchor = try self.arcoreSession?.createAnchor(
+                    coordinate: coordinates,
+                    altitude: arguments!["alt"] as! Double,
+                    eastUpSouthQAnchor: simd_quatf(vector: simd_float4(x: 0, y: 0, z: 0, w: 0))
+                );
+                
+                let arAnchor = ARAnchor(transform: anchor!.transform)
+                self.sceneView.session.add(anchor: arAnchor);
+                result(serializeAnchor(anchor: arAnchor, anchorNode: nil, ganchor: anchor!, name: arguments!["name"] as! String));
+                
+            } catch {
+                print(error)
+            }
+            result(nil);
                 break;
             case "getCameraPose":
                 if let cameraPose = sceneView.session.currentFrame?.camera.transform {
@@ -190,15 +211,19 @@ class IosARView: NSObject, FlutterPlatformView, ARSCNViewDelegate, UIGestureReco
                 arcoreSession = try! GARSession.session()
 
                 if (arcoreSession != nil){
-                    let configuration = GARSessionConfiguration();
-                    configuration.cloudAnchorMode = .enabled;
-                    arcoreSession?.setConfiguration(configuration, error: nil);
+                    
+//                    configuration.cloudAnchorMode = .enabled;
+
                     if let token = JWTGenerator().generateWebToken(){
                         arcoreSession!.setAuthToken(token)
 
                         cloudAnchorHandler = CloudAnchorHandler(session: arcoreSession!)
                         arcoreSession!.delegate = cloudAnchorHandler
                         arcoreSession!.delegateQueue = DispatchQueue.main
+                        
+                        let configuration = GARSessionConfiguration();
+                        configuration.geospatialMode = .enabled;
+                        arcoreSession?.setConfiguration(configuration, error: nil);
 
                         arcoreMode = true
                     } else {
@@ -524,7 +549,7 @@ class IosARView: NSObject, FlutterPlatformView, ARSCNViewDelegate, UIGestureReco
         guard let sceneView = recognizer.view as? ARSCNView else {
             return
         }
-        parseTouchLocation(touchLocation: recognizer.location(in: sceneView), returnHitResult: false)
+        parseTouchLocation(touchLocation: recognizer.location(in: sceneView), returnHitResult: false);
     }
 
     func parseTouchLocation(touchLocation: CGPoint, returnHitResult: Bool) -> Any? {
@@ -538,18 +563,19 @@ class IosARView: NSObject, FlutterPlatformView, ARSCNViewDelegate, UIGestureReco
 
         let planeTypes: ARHitTestResult.ResultType
         if #available(iOS 11.3, *){
-            planeTypes = ARHitTestResult.ResultType([.existingPlaneUsingGeometry, .featurePoint])
+            planeTypes = ARHitTestResult.ResultType([.existingPlaneUsingGeometry, .featurePoint]);
         }else {
-            planeTypes = ARHitTestResult.ResultType([.existingPlaneUsingExtent, .featurePoint])
+            planeTypes = ARHitTestResult.ResultType([.existingPlaneUsingExtent, .featurePoint]);
         }
 
-        let planeAndPointHitResults = sceneView.hitTest(touchLocation, types: planeTypes)
+        let planeAndPointHitResults = sceneView.hitTest(touchLocation, types: planeTypes);
 
         // store the alignment of the tapped plane anchor so we can refer to is later when transforming the node
         if planeAndPointHitResults.count > 0, let hitAnchor = planeAndPointHitResults.first?.anchor as? ARPlaneAnchor {
             self.tappedPlaneAnchorAlignment = hitAnchor.alignment
         }
 
+    
         let serializedPlaneAndPointHitResults = planeAndPointHitResults.map{serializeHitResult($0)}
         if (serializedPlaneAndPointHitResults.count != 0) {
 

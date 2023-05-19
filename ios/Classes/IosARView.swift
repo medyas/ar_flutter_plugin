@@ -73,7 +73,7 @@ class IosARView: NSObject, FlutterPlatformView, ARSCNViewDelegate, UIGestureReco
                 result(nil)
             }
 
-    func onSessionMethodCalled(_ call :FlutterMethodCall, _ result:FlutterResult) {
+    func onSessionMethodCalled(_ call :FlutterMethodCall, _ result:@escaping FlutterResult) {
         let arguments = call.arguments as? Dictionary<String, Any>
 
         switch call.method {
@@ -92,20 +92,24 @@ class IosARView: NSObject, FlutterPlatformView, ARSCNViewDelegate, UIGestureReco
                 var coordinates = CLLocationCoordinate2D();
                 coordinates.latitude = arguments!["lat"] as! Double;
                 coordinates.longitude = arguments!["lon"] as! Double;
-                var anchor = try self.arcoreSession?.createAnchor(
+                try arcoreSession!.createAnchorOnTerrain(
                     coordinate: coordinates,
-                    altitude: arguments!["alt"] as! Double,
-                    eastUpSouthQAnchor: simd_quatf(vector: simd_float4(x: 0, y: 0, z: 0, w: 0))
+                    altitudeAboveTerrain: 0,
+                    eastUpSouthQAnchor: simd_quatf(vector: simd_float4(x: 0, y: 0, z: 0, w: 0)),
+                    completionHandler: { anchor, state in
+                        print(state.rawValue);
+                        if (state == GARTerrainAnchorState.success) {
+                            let newAnchor = ARAnchor(transform: anchor!.transform);
+                            result(serializeAnchor(anchor: newAnchor, anchorNode: nil, ganchor: anchor!, name: arguments!["name"] as! String));
+                        } else {
+                            result(nil);
+                        }
+                    }
                 );
-                
-                let arAnchor = ARAnchor(transform: anchor!.transform)
-                self.sceneView.session.add(anchor: arAnchor);
-                result(serializeAnchor(anchor: arAnchor, anchorNode: nil, ganchor: anchor!, name: arguments!["name"] as! String));
-                
             } catch {
                 print(error)
+                result(nil);
             }
-            result(nil);
                 break;
             case "getCameraPose":
                 if let cameraPose = sceneView.session.currentFrame?.camera.transform {
@@ -207,6 +211,33 @@ class IosARView: NSObject, FlutterPlatformView, ARSCNViewDelegate, UIGestureReco
                     deleteAnchor(anchorName: name)
                 }
                 break
+        case "initGeoSpatialMode":
+            arcoreSession = try! GARSession.session()
+
+            if (arcoreSession != nil){
+                
+//                    configuration.cloudAnchorMode = .enabled;
+
+                if let token = JWTGenerator().generateWebToken(){
+                    arcoreSession!.setAuthToken(token)
+
+//                    cloudAnchorHandler = CloudAnchorHandler(session: arcoreSession!)
+//                    arcoreSession!.delegate = cloudAnchorHandler
+                    arcoreSession!.delegateQueue = DispatchQueue.main
+                    
+                    let configuration = GARSessionConfiguration();
+                    configuration.geospatialMode = .enabled;
+                    arcoreSession?.setConfiguration(configuration, error: nil);
+
+                    arcoreMode = true
+                } else {
+                    sessionManagerChannel.invokeMethod("onError", arguments: ["Error generating JWT, have you added cloudAnchorKey.json into the example/ios/Runner directory?"])
+                }
+            } else {
+                sessionManagerChannel.invokeMethod("onError", arguments: ["Error initializing Google AR Session"])
+            }
+
+            break
             case "initGoogleCloudAnchorMode":
                 arcoreSession = try! GARSession.session()
 
@@ -222,7 +253,7 @@ class IosARView: NSObject, FlutterPlatformView, ARSCNViewDelegate, UIGestureReco
                         arcoreSession!.delegateQueue = DispatchQueue.main
                         
                         let configuration = GARSessionConfiguration();
-                        configuration.geospatialMode = .enabled;
+                        configuration.cloudAnchorMode = .enabled;
                         arcoreSession?.setConfiguration(configuration, error: nil);
 
                         arcoreMode = true

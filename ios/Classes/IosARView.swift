@@ -94,7 +94,7 @@ class IosARView: NSObject, FlutterPlatformView, ARSCNViewDelegate, UIGestureReco
                 coordinates.longitude = arguments!["lon"] as! Double;
                 try arcoreSession!.createAnchorOnTerrain(
                     coordinate: coordinates,
-                    altitudeAboveTerrain: 0,
+                    altitudeAboveTerrain: arguments!["alt"] as! Double,
                     eastUpSouthQAnchor: simd_quatf(vector: simd_float4(x: 0, y: 0, z: 0, w: 0)),
                     completionHandler: { anchor, state in
                         print(state.rawValue);

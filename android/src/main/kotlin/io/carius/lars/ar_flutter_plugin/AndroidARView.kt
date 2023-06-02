@@ -273,6 +273,19 @@ internal class AndroidARView(
                                 sessionManagerChannel.invokeMethod("onError", listOf("Error initializing cloud anchor mode: Session is null"))
                             }
                         }
+                        "initGeospatialMode" -> {
+                            if (arSceneView.session != null) {
+                                val config = Config(arSceneView.session)
+                                config.cloudAnchorMode = Config.CloudAnchorMode.ENABLED
+                                config.updateMode = Config.UpdateMode.LATEST_CAMERA_IMAGE
+                                config.focusMode = Config.FocusMode.AUTO
+                                arSceneView.session?.configure(config)
+
+                                cloudAnchorHandler = CloudAnchorHandler(arSceneView.session!!)
+                            } else {
+                                sessionManagerChannel.invokeMethod("onError", listOf("Error initializing cloud anchor mode: Session is null"))
+                            }
+                        }
                         "uploadAnchor" ->  {
                             val anchorName: String? = call.argument<String>("name")
                             val ttl: Int? = call.argument<Int>("ttl")

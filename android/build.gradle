@@ -5,11 +5,11 @@ buildscript {
     ext.kotlin_version = '1.7.10'
     repositories {
         google()
-        jcenter()
+        mavenCentral()
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:7.3.0'
+        classpath 'com.android.tools.build:gradle:8.5.1'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
     }
 }
@@ -25,12 +25,12 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 
 android {
-    compileSdkVersion 34
-
+    namespace 'io.carius.lars.ar_flutter_plugin'
     sourceSets {
         main.java.srcDirs += 'src/main/kotlin'
     }
     defaultConfig {
+        compileSdk 34
         minSdkVersion 24
     }
 }
@@ -54,8 +54,7 @@ afterEvaluate {
         for (def dependency : configuration.dependencies) {
             if (dependency.group == 'io.flutter' &&
                     dependency.name.startsWith('flutter_embedding') &&
-                    dependency.isTransitive())
-            {
+                    dependency.isTransitive()) {
                 containsEmbeddingDependencies = true
                 break
             }
